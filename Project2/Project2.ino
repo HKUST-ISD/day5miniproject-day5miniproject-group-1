@@ -6,11 +6,11 @@
 
 //define pins
 #define LED_PIN 1
-#define DHT_PIN   4
-#define TRIG_PIN 15        
-#define ECHO_PIN  16       
-#define BUZZER_PIN 35     
-#define Servo_PIN 5 
+#define DHT_PIN 4
+#define TRIG_PIN 15
+#define ECHO_PIN 16
+#define BUZZER_PIN 35
+#define Servo_PIN 5
 
 Servo servo;
 
@@ -20,11 +20,11 @@ DHT dht11(DHT_PIN, DHT_TYPE);
 // Maximum distance we want to ping for (in centimeters).
 #define MAX_DISTANCE 400
 // NewPing setup of pins and maximum distance.
-NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE); 
+NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
 
 void setup() {
-  // Initialize Serial Monitor 
-  Serial.begin(115200);    
+  // Initialize Serial Monitor
+  Serial.begin(115200);
   // initialize the DHT11 sensor
   dht11.begin();
   //attach servo pin
@@ -36,74 +36,68 @@ void setup() {
 }
 
 void loop() {
-
-  // read humidity
-  float humi  = dht11.readHumidity();
-  // read temperature in Celsius
+  // Read humidity and temperature
+  float humi = dht11.readHumidity();
   float tempC = dht11.readTemperature();
-  // read temperature in Fahrenheit
-  float tempF = dht11.readTemperature(true);
 
-  // check whether the reading is successful or not
-  if ( isnan(tempC) || isnan(tempF) || isnan(humi)) {
+  // Check if sensor reading failed
+  if (isnan(humi) || isnan(tempC)) {
     Serial.println("Failed to read from DHT11 sensor!");
+    delay(2000);
     return;
   }
-  
-    Serial.print("Temp: ");
+
+  // Always print current readings
+  Serial.print("Temp: ");
   Serial.print(tempC);
   Serial.print(" °C | Humidity: ");
   Serial.print(humi);
   Serial.println(" %");
 
-  // ---------------- SAFE ----------------
-  if (tempC <= 30) {
-
-    // Servo stop
-    servo.write(0);
-
-    // Serial message
+  // ───────────────────────────────────────────────
+  //              Main decision tree
+  // ───────────────────────────────────────────────
+  if (tempC <= 30.0) {
+    // ================= SAFE =================
+    servo.write(95);     // servo/fan stopped
+    noTone(BUZZER_PIN);  // buzzer off
     Serial.println("Status: SAFE");
-
-    // Buzzer off
-    noTone(BUZZER_PIN);
   }
 
-  // ---------------- CAUTION ----------------
-  else if (humi >= 30) {
+  else {
+    // Temperature > 30 °C ──► now humidity decides
 
-    // Servo stop
-    servo.write(0);
+    if (humi >= 30.0) {
+      // ================ CAUTION ================
+      servo.write(95);  // servo/fan stopped
 
-    // Serial message
-    Serial.println("Status: CAUTION!!!");
+      tone(BUZZER_PIN, 1000);  // continuous warning tone
 
-    // Buzzer continuous alarm
-    tone(BUZZER_PIN, 1000);
+      // Measure distance to heat source
+      float distance = sonar.ping_cm();
+      if (distance == 0) distance = MAX_DISTANCE;  // handle out-of-range
 
-    // Report distance of heat source
-    float distance = sonar.ping_cm();
-    Serial.print("Heat source distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
+      Serial.print("Heat source distance: ");
+      Serial.print(distance);
+      Serial.println(" cm");
+
+      Serial.println("Status: CAUTION!!!");
+    }
+
+    else {
+      // =============== DANGEROUS ===============
+      servo.write(70);  // fan on / servo to d°
+
+      // Beep pattern (non-blocking style would be better, but this is simple)
+      tone(BUZZER_PIN, 2000);
+      delay(300);
+      noTone(BUZZER_PIN);
+      delay(300);
+
+      Serial.println("Status: DANGEROUS!!!");
+    }
   }
 
-  // ---------------- DANGEROUS ----------------
-  else if (humi < 30) {
-
-    // Servo run (fan on)
-    servo.write(90);
-
-    // Serial message
-    Serial.println("Status: DANGEROUS!!!");
-
-    // Buzzer beeping
-    tone(BUZZER_PIN, 2000);
-    delay(300);
-    noTone(BUZZER_PIN);
-    delay(300);
-  }
-
-  // wait a 2 seconds between readings
+  // Wait before next reading
   delay(2000);
 }

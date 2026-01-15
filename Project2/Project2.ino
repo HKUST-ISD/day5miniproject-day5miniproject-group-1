@@ -7,8 +7,8 @@
 //define pins
 #define LED_PIN 1
 #define DHT_PIN   4
-#define TRIG_PIN 16        
-#define ECHO_PIN  17       
+#define TRIG_PIN 15        
+#define ECHO_PIN  16       
 #define BUZZER_PIN 35     
 #define Servo_PIN 5 
 
